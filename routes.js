@@ -12,12 +12,14 @@
 
 const express = require('express');
 const router = express.Router();
-const { db } = require('./DB');
-const { authenticate } = require('./auth');
+const { db } = require('./src/db');
+const { authenticate } = require('./src/middleware/auth');
 const UserController = require('./UserController');
 const { getTasks, getTaskById } = require('./get-tasks');
-const { validateEmail, isNonEmptyString } = require('./utils');
-const { VALID_TASK_STATUSES } = require('./misc/constants');
+const { validateEmail, isNonEmptyString } = require('./src/utils/validation');
+const { getPagination } = require('./src/utils/pagination');
+
+const VALID_TASK_STATUSES = ['active', 'completed', 'archived'];
 
 // ─── Health ──────────────────────────────────────────────────────────────────
 
@@ -145,8 +147,7 @@ router.get('/tasks', (req, res) => {
     return res.status(400).json({ error: `status must be one of: ${VALID_TASK_STATUSES.join(', ')}` });
   }
 
-  const limit = Math.min(100, parseInt(page_size) || 20);
-  const offset = ((parseInt(page) || 1) - 1) * limit;
+  const { limit, offset } = getPagination(page, page_size);
 
   const tasks = getTasks({
     status: status || undefined,
