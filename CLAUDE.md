@@ -13,9 +13,11 @@ Read the matching file before starting these tasks:
 - **Any task involving API routes or endpoints** → `.claude/context/api-conventions.md`
 - **Any task involving tests or test coverage** → `.claude/context/testing-standards.md`
 
-## Architecture
+## Folder structure
 
-All source lives under `src/`, in three layers: **routes → services → queries**. Each layer only calls the one below it.
+All source lives under `src/`, in layers. Each layer calls only the one directly below it:
+
+**routes → services → queries → database connection** (`src/db/index.js`)
 
 ```
 src/
@@ -34,7 +36,7 @@ src/
 
 - **Routes** (`src/routes/<resource>.js`) export `{ <resource>Router }`. A handler reads `req`, calls one service function, sends the response, and passes errors to `next(err)`. Routes contain no SQL and no validation.
 - **Services** (`src/services/<resource>.js`) do validation and business rules, and throw `{ status, message }` for expected errors. They call `src/db/queries/*` and never `db.prepare` directly. Side effects belong here, such as the welcome email (`services/email.js`, a console-logging stub).
-- **Queries** (`src/db/queries/<table>.js`) are thin wrappers around `db.prepare(...)` with no HTTP knowledge. Reuse an existing query (for example `findUserById`) rather than writing another copy.
+- **Queries** (`src/db/queries/<table>.js`) import `{ db }` from `src/db/index.js` and are thin wrappers around `db.prepare(...)` with no HTTP knowledge. Reuse an existing query (for example `findUserById`) rather than writing another copy.
 - **Error handler** (`src/middleware/error-handler.js`) sends `{ error: message }` with `err.status || 500`. It logs only 5xx errors.
 - **Nested resources** (`/tasks/:id/comments`, `/tasks/:id/tags`) use `express.Router({ mergeParams: true })`. They're mounted in `src/index.js` before `/tasks`.
 - **Duplicate-key detection** uses `isUniqueViolation(err)` from `src/utils/sqlite-errors.js`. It checks SQLite error codes, not message text.
@@ -45,7 +47,13 @@ Other facts:
 - `src/db/index.js` uses `:memory:` when `NODE_ENV=test`; otherwise `DB_PATH` or `taskr.db`. Foreign keys are enforced, and FKs have no `ON DELETE` rules, so deleting a referenced user or project errors (500).
 - Auth (`src/middleware/auth.js`): the `x-api-key` header must equal the `API_KEY` env (default `dev-key`). Today it's applied only to `DELETE /users/:id` and `DELETE /projects/:id`. New destructive routes should use it.
 - Task statuses (`active|completed|archived`) are defined in `src/services/tasks.js` and enforced by a DB CHECK constraint.
-- New files are kebab-case.
+
+## Naming conventions
+
+- **All files use kebab-case**: `error-handler.js`, `task-tags.js`, `sqlite-errors.js`. No camelCase, PascalCase or snake_case file names.
+- Route, service and query files are named after their resource in lowercase plural: `src/routes/tasks.js`, `src/services/tasks.js`, `src/db/queries/tasks.js`.
+- Test files are named `<resource>.test.js`: `tests/tasks.test.js`.
+- Exported routers are camelCase `<resource>Router`, for example `taskTagsRouter`.
 
 ## Commands
 
@@ -54,7 +62,7 @@ npm install
 npm run db:seed          # create schema + sample data in ./taskr.db (no-op if users already exist)
 npm run db:reset         # delete taskr.db and re-seed
 npm run dev              # node --watch src/index.js, port 3000 (PORT env overrides)
-npm start
+npm start                # node src/index.js
 npm test                 # all Jest suites
 npx jest tests/tasks.test.js           # one file
 npx jest -t "filters by ?status=active" # one test by name
