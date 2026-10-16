@@ -1,9 +1,9 @@
 process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
-const app = require('../index');
-const { db } = require('../DB');
-const { createSchema } = require('./schema');
+const app = require('../src/index');
+const { db } = require('../src/db');
+const { createSchema } = require('../src/db/schema');
 
 beforeAll(() => {
   createSchema(db);
@@ -156,5 +156,43 @@ describe('DELETE /tasks/:id', () => {
   test('returns 404 when task does not exist', async () => {
     const res = await request(app).delete('/tasks/99999');
     expect(res.status).toBe(404);
+  });
+});
+
+describe('GET /tasks pagination', () => {
+  beforeEach(() => {
+    const insert = db.prepare("INSERT INTO tasks (title, created_at) VALUES (?, ?)");
+    for (let i = 1; i <= 25; i++) {
+      insert.run(`Task ${i}`, `2026-01-${String(i).padStart(2, '0')}`);
+    }
+  });
+
+  test('returns 20 tasks per page by default, newest first', async () => {
+    const res = await request(app).get('/tasks');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(20);
+    expect(res.body[0].title).toBe('Task 25');
+  });
+
+  test('returns the requested page and page size', async () => {
+    const res = await request(app).get('/tasks?page=2&page_size=10');
+    expect(res.status).toBe(200);
+    expect(res.body.map(t => t.title)).toEqual(
+      ['Task 15', 'Task 14', 'Task 13', 'Task 12', 'Task 11', 'Task 10', 'Task 9', 'Task 8', 'Task 7', 'Task 6']
+    );
+  });
+
+  test('returns the remaining tasks on the last page', async () => {
+    const res = await request(app).get('/tasks?page=3&page_size=10');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(5);
+  });
+
+  test('filters by project and assignee', async () => {
+    db.prepare("INSERT INTO tasks (title, project_id, assignee_id) VALUES ('Mine', 1, 1)").run();
+    db.prepare("INSERT INTO tasks (title, project_id) VALUES ('Unassigned', 1)").run();
+    const res = await request(app).get('/tasks?project_id=1&assignee_id=1');
+    expect(res.status).toBe(200);
+    expect(res.body.map(t => t.title)).toEqual(['Mine']);
   });
 });

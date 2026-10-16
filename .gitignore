@@ -1,0 +1,8 @@
+.mcp.json
+node_modules/
+taskr.db
+taskr.db-wal
+taskr.db-shm
+taskr.db-journal
+.DS_Store
+.claude/settings.local.json
