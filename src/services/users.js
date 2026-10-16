@@ -1,6 +1,7 @@
 const usersQueries = require('../db/queries/users');
 const { sendEmail } = require('./email');
 const { validateEmail, isNonEmptyString } = require('../utils/validation');
+const { isUniqueViolation } = require('../utils/sqlite-errors');
 
 function listUsers() {
   return usersQueries.findAllUsers();
@@ -21,7 +22,7 @@ async function createUser({ name, email }) {
   try {
     id = usersQueries.insertUser({ name, email });
   } catch (err) {
-    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') throw { status: 409, message: 'email already exists' };
+    if (isUniqueViolation(err)) throw { status: 409, message: 'email already exists' };
     throw err;
   }
   const user = usersQueries.findUserById(id);
