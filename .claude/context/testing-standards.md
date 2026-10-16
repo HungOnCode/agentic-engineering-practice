@@ -4,7 +4,7 @@ How to write tests for the Taskr API.
 
 ## The rules
 
-1. **Name test files `<resource>.test.js`, in lowercase**, inside `tests/`: `tasks.test.js`, `comments.test.js`, `tags.test.js`. Don't copy the older styles (`userTest.js`, `test-projects.js`); they're scheduled for renaming.
+1. **Name test files `<resource>.test.js`, in lowercase**, inside `tests/`: `tasks.test.js`, `comments.test.js`, `tags.test.js`. Jest only runs files matching `tests/*.test.js`.
 2. **Use Jest and supertest against an in-memory SQLite database.** Tests must never need a running server, a `taskr.db` file, a seed step or any external service.
 3. **For every endpoint, cover the happy path and at least two error cases.** Good error cases are a missing or invalid field (400), an unknown id (404), a duplicate (409), and a missing or wrong API key on protected routes (401).
 4. **Write test descriptions in plain English, describing what the endpoint does**, not how it's implemented.
@@ -13,12 +13,12 @@ How to write tests for the Taskr API.
 ## File template
 
 ```js
-process.env.NODE_ENV = 'test'; // must come before requiring the app: it makes DB.js use :memory:
+process.env.NODE_ENV = 'test'; // must come before requiring the app: it makes src/db use :memory:
 
 const request = require('supertest');
-const app = require('../index');
-const { db } = require('../DB');
-const { createSchema } = require('./schema');
+const app = require('../src/index');
+const { db } = require('../src/db');
+const { createSchema } = require('../src/db/schema');
 
 beforeAll(() => {
   createSchema(db);
@@ -51,7 +51,6 @@ describe('POST /comments', () => {
 - Set up data directly with `db.prepare(...)` when that's simpler than going through the API. Check results through the API's responses.
 - Each test must pass when run on its own (`npx jest -t "<description>"`). Don't depend on data left behind by an earlier test.
 - Protected routes take the header `.set('x-api-key', 'dev-key')`.
-- After the refactor, the app and database imports move under `src/` (for example `require('../src/index')`). Use whatever paths exist at the time.
 
 ## Writing descriptions
 
@@ -70,4 +69,4 @@ Assert on status codes and response bodies, not on internals.
 
 - Run `npm test` and confirm the whole suite passes, not just the new file.
 - If an endpoint has fewer than two realistic error cases, tell the user. Don't invent tests for cases that can't happen.
-- If you changed the schema, update `tests/schema.js` as well as `db/seed.js`.
+- If you changed the schema, make it in `src/db/schema.js`; the seed script and the tests both use it.
